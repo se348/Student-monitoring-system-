@@ -82,7 +82,6 @@ router.post('/', async (req, res) => {
 
     let student = new Student(
     { 
-        _id: student._id,
         name: req.body.name,
         gender: req.body.gender,
         phoneNumber: req.body.phoneNumber,

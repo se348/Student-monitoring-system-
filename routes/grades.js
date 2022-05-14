@@ -4,7 +4,8 @@ const mongoose = require('mongoose');
 const express = require('express');
 const { Subject } = require('../models/subject');
 const router = express.Router();
-
+const _ = require('lodash');
+const res = require('express/lib/response');
 async function updateGrade(studentId, newMark){
   let student = await Student.findById(studentId)
   if(!student) return res.status(400).send("not a right input")
@@ -25,6 +26,29 @@ async function updateGrade(studentId, newMark){
     mark: mark1
   }
 }
+async function deleteGrade(studentId, subjectName){
+  let student = await Student.findById(studentId)
+  if(!student) return res.status(400).send("not a right input")
+  subjects_of_student =student.subjects
+  let mark1
+  for (let [i,subject] of subjects_of_student.entries()){
+    
+    if ((String)(subject.subjectName) ==(String)(subjectName)){
+      subject.test2 =-100
+      subject.test1 =-100
+      subject.mid =-100
+      subject.final =-100
+      subject.assesment=-100
+      subjects_of_student[i] =subject
+    }
+  }
+  
+  student =student.save()
+  return {
+    _id: student._id,
+  }
+}
+
 router.get('/:sectionName/:subjectName', async (req, res) => {
     const students = await Student.find({sectionName: req.params.sectionName}).select({subjects: 1, name: 1, _id: 1});
     student_collection =[]
@@ -33,7 +57,7 @@ router.get('/:sectionName/:subjectName', async (req, res) => {
       let variable =student.subjects.find((subject)=> subject.subjectName==req.params.subjectName)
       variable =Subject(variable) 
       if (variable!= null  & variable.test2!=-100){ 
-        indiv_student.mark= variable,
+        indiv_student.mark= _.pick(variable, ["test2", "mid", "final","test1", "assesment"]),
         indiv_student._id= student._id
        student_collection.push(indiv_student)
        }
@@ -52,14 +76,65 @@ router.put('/', async (req, res) => {
   }
     res.send(collection);
 });
-router.put("/student/", async(req, res)=>{
+router.put("/students", async(req, res)=>{
   elem =Grade(req.body)
   const {error} =validateGrade(elem)
   if(error) return res.status(400).send("invalid input")
   student = await updateGrade(elem._id, elem.mark)
   res.send(student)
 })
+router.get("/:studentId", async(req, res)=>{
+  const student = await Student.findById( req.params.studentId).select({subjects: 1, name: 1, _id: 1});
+  if (!student) return res.status(400).send("No student found")
+  subject_collection =[]
+    for(let subject of student.subjects){
+      variable =Subject(subject) 
+      if (variable.test2!=-100){ 
+        indiv_subject= _.pick(variable, ["test2", "mid", "final","test1", "assesment", "subjectName"]),
+        subject_collection.push(indiv_subject)
+       }
+    }    
+    res.send(subject_collection);
+})
+router.get("/student/:studentId/:subjectName", async(req, res)=>{
+  const student = await Student.findById( req.params.studentId).select({subjects: 1, name: 1, _id: 1});
+  if (!student) return res.status(400).send("No student found")
+  for(let subject of student.subjects){
+    variable =Subject(subject) 
+    if (variable.test2!=-100 & variable.subjectName==req.params.subjectName){ 
+      indiv_subject= _.pick(variable, ["test2", "mid", "final","test1", "assesment"]),
+      res.send(indiv_subject)
+      break
+    }
+  }
+  res.status(400).send("No subject found")
+})
 
+router.delete("/:sectionName/:subjectName",async (req,res)=>{
+  const students = await Student.find({sectionName: req.params.sectionName}).select({subjects: 1, name: 1, _id: 1});
+    for(let student of students){
+      indiv_student={}
+      let variable =student.subjects.find((subject)=> subject.subjectName==req.params.subjectName)
+      variable =Subject(variable) 
+      if (variable!= null  & variable.test2!=-100){ 
+        await deleteGrade(student._id, variable.subjectName)
+       }
+    }
+    res.send("succesful")    
+})
+router.delete("/student/:studentId/:subjectName", async(req, res)=>{
+  const student = await Student.findById( req.params.studentId).select({subjects: 1, name: 1, _id: 1});
+  if (!student) return res.status(400).send("No student found")
+  for(let subject of student.subjects){
+    variable =Subject(subject) 
+    if (variable.test2!=-100 & variable.subjectName==req.params.subjectName){ 
+      await deleteGrade(student._id, variable.subjectName)
+      res.send("succesful")
+      break
+    }
+  }
+  res.status(400).send("No subject found")
+})
 module.exports = router; 
 
 
