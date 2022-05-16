@@ -2,9 +2,9 @@
 const {Announcement, validateAnnouncement} = require('../models/Announcement');
 const Express = require('express');
 const router = Express.Router();
-
-
-router.get('/', async (req, res) => {
+const auth =require("../middleware/auth")
+const {adminPower} = require('../middleware/admin')
+router.get('/',auth, async (req, res) => {
     const anncmnts = await Announcement.find();
     if (!anncmnts)
         res.status(404).send("No announcements found");
@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
     res.send(anncmnts);
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id',auth, async (req, res) => {
     const anncmnt = await Announcement.findById(req.params.id);
     if (!anncmnt)
         res.status(404).send('Announcement with given id not found');
@@ -20,7 +20,7 @@ router.get('/:id', async (req, res) => {
     res.send(anncmnt);
 });
 
-router.post('/', async (req, res) => {
+router.post('/',[auth, adminPower], async (req, res) => {
     const { error } = validateAnnouncement(req.body); 
     if (error) return res.status(400).send(error.details[0].message);
 
@@ -38,7 +38,7 @@ router.post('/', async (req, res) => {
     res.send(announcement);
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id',[auth, adminPower], async (req, res) => {
     const {error} = validateAnnouncement(req.body);
     if (error) return res.status(400).send(error.details[0].message);
 
@@ -57,7 +57,7 @@ router.put('/:id', async (req, res) => {
     res.send(updatedAnncmnt);
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id',[auth,adminPower], async (req, res) => {
     const deletedAnnouncement = await Announcement.findByIdAndRemove(req.params.id);
     if (!deletedAnnouncement)
         res.status(404).send('Announcement was not found');

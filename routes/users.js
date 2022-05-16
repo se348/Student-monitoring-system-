@@ -4,7 +4,9 @@ const express =require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt')
 const _ =require('lodash')
-router.post("/", async(req, res)=>{
+const auth =require("../middleware/auth")
+const {adminPower} =require("../middleware/admin")
+router.post("/",[auth, adminPower], async(req, res)=>{
     const {error} = validateUser(req.body) 
     if(error) return res.status(400).send("Unable to register user")
     let user =await User.findOne({phoneNumber: req.body.phoneNumber})

@@ -6,6 +6,11 @@ const { Subject } = require('../models/subject');
 const router = express.Router();
 const _ = require('lodash');
 const res = require('express/lib/response');
+const auth =require("../middleware/auth")
+const {adminTeacherPower} = require('../middleware/adminOrTeacher')
+const {User} = require('../models/user')
+
+
 async function updateGrade(studentId, newMark){
   let student = await Student.findById(studentId)
   if(!student) return res.status(400).send("not a right input")
@@ -49,7 +54,7 @@ async function deleteGrade(studentId, subjectName){
   }
 }
 
-router.get('/:sectionName/:subjectName', async (req, res) => {
+router.get('/:sectionName/:subjectName',[auth, adminTeacherPower], async (req, res) => {
     const students = await Student.find({sectionName: req.params.sectionName}).select({subjects: 1, name: 1, _id: 1});
     student_collection =[]
     for(let student of students){
@@ -64,7 +69,7 @@ router.get('/:sectionName/:subjectName', async (req, res) => {
     }    
     res.send(student_collection);
   });
-router.put('/', async (req, res) => {
+router.put('/', [auth,adminTeacherPower],async (req, res) => {
   const students_of_section = req.body;
   collection=[]
   for(let elem of students_of_section){
@@ -76,16 +81,24 @@ router.put('/', async (req, res) => {
   }
     res.send(collection);
 });
-router.put("/students", async(req, res)=>{
+router.put("/students",[auth,adminTeacherPower] ,async(req, res)=>{
   elem =Grade(req.body)
   const {error} =validateGrade(elem)
   if(error) return res.status(400).send("invalid input")
   student = await updateGrade(elem._id, elem.mark)
   res.send(student)
 })
-router.get("/:studentId", async(req, res)=>{
+router.get("/:studentId",auth, async(req, res)=>{
   const student = await Student.findById( req.params.studentId).select({subjects: 1, name: 1, _id: 1});
   if (!student) return res.status(400).send("No student found")
+  let user = await User.findById(req.user._id)
+    if (String(user.role)!="admin"){
+        if (String(user.role)!="teacher"){
+          if(String(student.phoneNumber) != String(user.phoneNumber)){  
+            return res.status(403).send("Acces denied")
+          }
+        }
+    }
   subject_collection =[]
     for(let subject of student.subjects){
       variable =Subject(subject) 
@@ -96,9 +109,17 @@ router.get("/:studentId", async(req, res)=>{
     }    
     res.send(subject_collection);
 })
-router.get("/student/:studentId/:subjectName", async(req, res)=>{
+router.get("/student/:studentId/:subjectName",auth, async(req, res)=>{
   const student = await Student.findById( req.params.studentId).select({subjects: 1, name: 1, _id: 1});
   if (!student) return res.status(400).send("No student found")
+  let user = await User.findById(req.user._id)
+    if (String(user.role)!="admin"){
+        if (String(user.role)!="teacher"){
+          if(String(student.phoneNumber) != String(user.phoneNumber)){  
+            return res.status(403).send("Acces denied")
+          }
+        }
+    }
   for(let subject of student.subjects){
     variable =Subject(subject) 
     if (variable.test2!=-100 & variable.subjectName==req.params.subjectName){ 
@@ -110,7 +131,7 @@ router.get("/student/:studentId/:subjectName", async(req, res)=>{
   res.status(400).send("No subject found")
 })
 
-router.delete("/:sectionName/:subjectName",async (req,res)=>{
+router.delete("/:sectionName/:subjectName",[auth, adminTeacherPower],async (req,res)=>{
   const students = await Student.find({sectionName: req.params.sectionName}).select({subjects: 1, name: 1, _id: 1});
     for(let student of students){
       indiv_student={}
@@ -122,7 +143,7 @@ router.delete("/:sectionName/:subjectName",async (req,res)=>{
     }
     res.send("succesful")    
 })
-router.delete("/student/:studentId/:subjectName", async(req, res)=>{
+router.delete("/student/:studentId/:subjectName", [auth, adminTeacherPower],async(req, res)=>{
   const student = await Student.findById( req.params.studentId).select({subjects: 1, name: 1, _id: 1});
   if (!student) return res.status(400).send("No student found")
   for(let subject of student.subjects){

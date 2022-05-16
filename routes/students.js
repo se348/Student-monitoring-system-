@@ -3,6 +3,9 @@ const {Subject, validateSubject} = require('../models/subject');
 const mongoose = require('mongoose');
 const express = require('express');
 const router = express.Router();
+const auth =require("../middleware/auth");
+const { User } = require('../models/user');
+const res = require('express/lib/response');
 async function getStudent(id){
     const student = await Student.findById(id);
 
@@ -13,15 +16,20 @@ async function getStudent(id){
         gender: student.gender
     };
 }
-async function updateStudent(id, info){
+async function updateStudent(id, info, req){
+    const user =await User.findById(req.user._id)
     const { error } = validateStudent(info);
     if (error)
-        throw new Error(error);
+        res.status(400).send("update error");
 
     const student = await Student.findById(id);
     if (!student)
         return;
-
+    if(String(student.phoneNumber) != String(user.phoneNumber)){
+        if(String(user.role) != 'admin'){
+            return res.status(403).send("Forbidden access")
+        } 
+    }
     student.set({
         name: info.name,
         phoneNumber: info.phoneNumber,
@@ -48,7 +56,7 @@ async function removeStudent(id) {
         gender: removedStudent.gender};
 }
 
-router.get('/', async (req, res) => {
+router.get('/', auth, async (req, res) => {
     const students = await Student.find().sort('name');
     let students_collection=[]
     for(let student of students){
@@ -63,7 +71,7 @@ router.get('/', async (req, res) => {
     }
     res.send(students_collection);
   });
-router.post('/', async (req, res) => {
+router.post('/',auth, async (req, res) => {
     subjectNames =["history", "physics","chemistry","geography", "math", "ICT", "HPE" , "biology", "amharic", "aptitude", "civics", "bussiness", "economics"]
     let subjects=[]
     const { error } = validateStudent(req.body); 
@@ -100,11 +108,11 @@ router.post('/', async (req, res) => {
         gender: student.gender
     });
 });
-router.get('/:id', async (req, res) => {
-    const student = getStudent(req.params.id);
-
+router.get('/:id',auth, async (req, res) => {
+    const student =await getStudent(req.params.id);
     if (!student)
         res.status(404).send(student);
+        
     res.status(200).send({
         _id: student._id,
         name: student.name,
@@ -114,11 +122,12 @@ router.get('/:id', async (req, res) => {
     });
 });
 
-router.put('/:id', async (req, res) => {
-    const updatedStudent = await updateStudent(req.params.id, req.body);
+router.put('/:id',auth, async (req, res) => {
+    
+    const updatedStudent = await updateStudent(req.params.id, req.body, req);
     if (!updatedStudent)
         res.send();
-
+    
     res.send({
         _id: updatedStudent._id,
         name: updatedStudent.name,
@@ -128,7 +137,7 @@ router.put('/:id', async (req, res) => {
     });
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id',auth, async (req, res) => {
     const deletedStudent = await removeStudent(req.params.id);
     if (!deletedStudent)
         res.status(404).send('Student was not found');
